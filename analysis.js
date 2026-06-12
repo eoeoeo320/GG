@@ -169,14 +169,30 @@ const Analyzer = (() => {
     const answerType = detectAnswerType(question, answer);
     const keywords   = extractKeywords(answer, answerType);
 
+    // 콜론 패턴 ("개념 : 내용") 항목은 양쪽을 별도 빈칸 후보로 분리
+    const blanks = keywords.flatMap(kw => {
+      const colonIdx = kw.indexOf(' : ');
+      if (colonIdx > 0) {
+        const left  = kw.slice(0, colonIdx).trim();
+        const right = kw.slice(colonIdx + 3).trim();
+        if (left && right) {
+          return [
+            { text: left,  importance: 'high' },
+            { text: right, importance: 'high' },
+          ];
+        }
+      }
+      return [{ text: kw, importance: 'high' }];
+    });
+
     return {
       method:      'rule',
       model:       null,
       analyzedAt:  new Date().toISOString(),
       answerType,
       keywords,
-      keyPoints:   keywords,
-      blanks:      keywords.map(kw => ({ text: kw, importance: 'high' })),
+      keyPoints:   blanks.map(b => b.text),
+      blanks,
       structure:   _structureDesc(answerType, keywords.length),
     };
   }

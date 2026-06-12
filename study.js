@@ -112,12 +112,11 @@ const Study = (() => {
 
       const difficulty = _session.config.difficulty;
       const keywords   = q.analysis.keywords || [];
-      // AI blanks 추출 (text 값이 없는 항목 제거)
-      const aiBlankTexts = (q.analysis?.method === 'ai' && Array.isArray(q.analysis?.blanks))
+      // analysis.blanks 를 blankSource로 사용 (AI·규칙 공통 / 콜론 패턴 분리 포함)
+      const blankTexts = Array.isArray(q.analysis?.blanks)
         ? q.analysis.blanks.map(b => b?.text).filter(t => t && typeof t === 'string')
         : [];
-      // AI blanks가 있으면 사용, 없으면 keywords로 폴백
-      const blankSource = aiBlankTexts.length > 0 ? aiBlankTexts : keywords;
+      const blankSource = blankTexts.length > 0 ? blankTexts : keywords;
 
       _session.currentBlankedKeywords =
         difficulty === 'hell' ? [] : Analyzer.generateBlanks(blankSource, difficulty);
@@ -230,19 +229,86 @@ const Study = (() => {
   /* ---- 나열형 앞면 ---- */
   function _renderListFront(keywords, blanked) {
     const blankedSet = new Set(blanked);
+    let inputIdx = 0;
+
     return keywords.map((kw, i) => {
       const num = `<span class="text-sec" style="min-width:20px;display:inline-block">${_circleNum(i + 1)}</span>`;
       if (blankedSet.has(kw)) {
+        // 문장형(공백 포함): 조사 기반으로 핵심 명사만 빈칸 처리해 문맥 유지
+        if (kw.includes(' ')) {
+          const subBlanks = _extractSentenceNounBlanks(kw);
+          if (subBlanks.length > 0) {
+            const segments = Analyzer.parseAnswerSegments(kw, subBlanks);
+            const inlineHtml = segments.map(seg => {
+              if (seg.type === 'text') {
+                return `<span style="white-space:pre-wrap">${_esc(seg.content)}</span>`;
+              }
+              const idx = inputIdx++;
+              return `<input class="blank-input" type="text"
+                data-index="${idx}" data-answer="${_esc(seg.keyword)}"
+                placeholder="${'＿'.repeat(Math.min(seg.keyword.length + 1, 8))}"
+                autocomplete="off" spellcheck="false"
+                style="min-width:${Math.min(Math.max(60, seg.keyword.length * 12), 140)}px">`;
+            }).join('');
+            return `<div class="blank-line" style="flex-wrap:wrap">${num}<span style="flex:1;line-height:2">${inlineHtml}</span></div>`;
+          }
+        }
+        // 단어형: 전체 빈칸 (기존 동작)
+        const idx = inputIdx++;
         return `<div class="blank-line">${num}
           <input class="blank-input" type="text"
-            data-index="${i}" data-answer="${_esc(kw)}"
+            data-index="${idx}" data-answer="${_esc(kw)}"
             placeholder="${'＿'.repeat(Math.min(kw.length + 1, 8))}"
             autocomplete="off" spellcheck="false"
             style="min-width:${Math.min(Math.max(60, kw.length * 12), 150)}px">
         </div>`;
       }
+
+      // 콜론 패턴 부분 빈칸: blanked가 kw의 하위 항목일 때 인라인 렌더링
+      // 예) kw="개념 : 내용", blanked=["내용"] → "개념 : [___]"
+      const subBlanksInItem = blanked.filter(b => b !== kw && kw.includes(b));
+      if (subBlanksInItem.length > 0) {
+        const segments = Analyzer.parseAnswerSegments(kw, subBlanksInItem);
+        const inlineHtml = segments.map(seg => {
+          if (seg.type === 'text') {
+            return `<span style="white-space:pre-wrap">${_esc(seg.content)}</span>`;
+          }
+          const idx = inputIdx++;
+          return `<input class="blank-input" type="text"
+            data-index="${idx}" data-answer="${_esc(seg.keyword)}"
+            placeholder="${'＿'.repeat(Math.min(seg.keyword.length + 1, 8))}"
+            autocomplete="off" spellcheck="false"
+            style="min-width:${Math.min(Math.max(60, seg.keyword.length * 12), 180)}px">`;
+        }).join('');
+        return `<div class="blank-line" style="flex-wrap:wrap">${num}<span style="flex:1;line-height:2">${inlineHtml}</span></div>`;
+      }
+
       return `<div class="blank-line">${num}<span>${_esc(kw)}</span></div>`;
     }).join('');
+  }
+
+  /* 문장에서 조사를 제거하여 빈칸 대상 명사 추출 */
+  function _extractSentenceNounBlanks(sentence) {
+    const PARTICLES = [
+      '으로부터', '로부터', '에게서', '에서', '으로', '에게',
+      '로서', '로써', '으로서', '으로써', '이고', '이며',
+      '부터', '까지', '처럼', '보다', '마다',
+      '에', '로', '가', '이', '을', '를', '은', '는', '의', '과', '와', '도', '만',
+    ].sort((a, b) => b.length - a.length);
+
+    const blanks = [];
+    for (const token of sentence.trim().split(/\s+/)) {
+      for (const p of PARTICLES) {
+        if (token.length > p.length && token.endsWith(p)) {
+          const root = token.slice(0, token.length - p.length);
+          if (root.length >= 2 && !blanks.includes(root)) {
+            blanks.push(root);
+            break;
+          }
+        }
+      }
+    }
+    return blanks;
   }
 
   /* ---- 단계형 앞면 ---- */
@@ -424,20 +490,21 @@ const Study = (() => {
      제출 (나열형/단계형 자동채점)
   ---------------------------------------------------------- */
   function submitAnswer() {
-    const q        = Storage.getQuestion(_session.queue[_session.currentIndex]);
-    const blanked  = _session.currentBlankedKeywords;
-    const type     = q.answerType;
+    const q    = Storage.getQuestion(_session.queue[_session.currentIndex]);
+    const type = q.answerType;
 
     // 빈칸 입력값 수집
-    const inputs  = document.querySelectorAll('#study-front-body .blank-input');
-    const userInputs = [...inputs].map(el => el.value.trim());
+    const inputs     = [...document.querySelectorAll('#study-front-body .blank-input')];
+    const userInputs = inputs.map(el => el.value.trim());
+    // 각 input의 data-answer를 정답으로 사용 (문장형 세분화 빈칸 지원)
+    const expectedAnswers = inputs.map(el => el.dataset.answer || '');
 
     // 자동 채점
     let gradeResult;
     if (type === 'step') {
-      gradeResult = Analyzer.gradeStepAnswer(userInputs, blanked);
+      gradeResult = Analyzer.gradeStepAnswer(userInputs, expectedAnswers);
     } else {
-      gradeResult = Analyzer.gradeListAnswer(userInputs, blanked);
+      gradeResult = Analyzer.gradeListAnswer(userInputs, expectedAnswers);
     }
 
     _session.autoGradeResults = gradeResult;
