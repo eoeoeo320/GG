@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>암기 마스터</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="layout" id="app">
+
+  <!-- ===== SIDEBAR (PC) ===== -->
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">암기 마스터</div>
+      <div class="sidebar-subtitle">AI 시험 답안 암기 프로그램</div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-item active" data-page="dashboard">
+        <span class="nav-icon">&#8962;</span> 대시보드
+      </div>
+      <div class="nav-item" data-page="questions">
+        <span class="nav-icon">&#9636;</span> 문제 관리
+      </div>
+      <div class="nav-item" data-page="study-setup">
+        <span class="nav-icon">&#9675;</span> 학습하기
+      </div>
+      <div class="nav-item" data-page="wrong">
+        <span class="nav-icon">&#9888;</span> 오답노트
+      </div>
+      <div class="nav-item" data-page="stats">
+        <span class="nav-icon">&#9636;</span> 통계
+      </div>
+      <div class="nav-item" data-page="settings">
+        <span class="nav-icon">&#9881;</span> 설정
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <button class="btn btn-ghost btn-sm btn-block" onclick="navigate('study-setup')">
+        &#9654; 학습 시작
+      </button>
+    </div>
+  </nav>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="main" id="main-content">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <div>
+          <div class="page-title">대시보드</div>
+          <div class="page-subtitle" id="dash-date"></div>
+        </div>
+        <button class="btn btn-primary" onclick="navigate('study-setup')">학습 시작</button>
+      </div>
+      <div id="dash-stats" class="stat-grid"></div>
+      <div class="dash-grid">
+        <div class="card">
+          <div class="card-header">최근 학습 문제</div>
+          <div class="card-body" id="dash-recent"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">과목별 현황</div>
+          <div class="card-body" id="dash-subjects"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUESTIONS -->
+    <div id="page-questions" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">문제 관리</div>
+          <div class="page-subtitle" id="q-count-label"></div>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+          <button class="btn btn-outline" onclick="openBulkAdd()">일괄 등록</button>
+          <button class="btn btn-primary" onclick="openAddQuestion()">+ 문제 추가</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <div class="search-input-wrap flex-1">
+          <input type="text" id="q-search" placeholder="문제 검색..." oninput="renderQuestions()">
+        </div>
+        <select class="form-control form-select" id="q-subject-filter" onchange="renderQuestions()">
+          <option value="">전체 과목</option>
+        </select>
+        <select class="form-control form-select" id="q-status-filter" onchange="renderQuestions()">
+          <option value="">전체 상태</option>
+          <option value="unseen">미학습</option>
+          <option value="learning">학습중</option>
+          <option value="memorized">암기완료</option>
+        </select>
+        <select class="form-control form-select" id="q-type-filter" onchange="renderQuestions()">
+          <option value="">전체 유형</option>
+          <option value="list">나열형</option>
+          <option value="step">단계형</option>
+          <option value="descriptive">서술형</option>
+        </select>
+      </div>
+      <div id="question-list" class="question-list"></div>
+    </div>
+
+    <!-- STUDY SETUP -->
+    <div id="page-study-setup" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">학습 설정</div>
+          <div class="page-subtitle">학습 범위와 모드를 선택하세요</div>
+        </div>
+      </div>
+      <div class="setup-grid">
+
+        <!-- Subject -->
+        <div class="card card-body">
+          <div class="setup-section-title">과목 선택</div>
+          <div id="setup-subjects" class="flex flex-wrap gap-2 mt-3">
+            <button class="type-btn active" data-subject="all">전체</button>
+          </div>
+        </div>
+
+        <!-- Range -->
+        <div class="card card-body">
+          <div class="setup-section-title">출제 범위</div>
+          <div class="type-toggle mt-3" id="setup-range">
+            <button class="type-btn active" data-value="all">전체 문제</button>
+            <button class="type-btn" data-value="wrong">오답노트</button>
+            <button class="type-btn" data-value="preexam">시험 직전 모드</button>
+          </div>
+          <div class="text-sec mt-2" style="font-size:12px" id="setup-range-desc">
+            시험 직전 모드: 암기완료 제외, 오답+학습중 문제만 출제
+          </div>
+        </div>
+
+        <!-- Mode (difficulty + stage combined) -->
+        <div class="card card-body">
+          <div class="setup-section-title">학습 모드</div>
+          <div class="mode-grid mt-3" id="setup-mode">
+            <div class="mode-card selected" data-value="easy">
+              <div class="mode-stage">1단계</div>
+              <div class="mode-label">핵심 키워드 암기</div>
+              <div class="mode-desc">키워드 30% 빈칸 처리</div>
+            </div>
+            <div class="mode-card" data-value="normal">
+              <div class="mode-stage">2단계</div>
+              <div class="mode-label">빈칸 입력 학습</div>
+              <div class="mode-desc">키워드 60% 빈칸 처리</div>
+            </div>
+            <div class="mode-card" data-value="hard">
+              <div class="mode-stage">3단계</div>
+              <div class="mode-label">핵심 포인트 암기</div>
+              <div class="mode-desc">키워드 전체 빈칸 처리</div>
+            </div>
+            <div class="mode-card mode-hell" data-value="hell">
+              <div class="mode-stage">4단계</div>
+              <div class="mode-label">시험 모드</div>
+              <div class="mode-desc">문제만 표시, 완전 암기</div>
+            </div>
+          </div>
+          <div class="memorize-notice mt-3 text-sec" style="font-size:12px">
+            * 암기완료 조건: 3단계 이상에서 3회 연속 정답 (서로 다른 세션, 2일 이상)
+          </div>
+        </div>
+
+        <!-- Count info + Start button -->
+        <div id="setup-count-info" class="text-sec" style="font-size:13px;text-align:center;padding:4px 0"></div>
+        <button class="btn btn-primary btn-lg btn-block" id="btn-start-study" onclick="startStudy()">
+          학습 시작
+        </button>
+
+      </div>
+    </div>
+
+    <!-- STUDY SESSION -->
+    <div id="page-study" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title" id="study-title">학습 중</div>
+          <div class="page-subtitle" id="study-subtitle"></div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="confirmEndStudy()">세션 종료</button>
+      </div>
+      <div class="study-container">
+        <div class="study-progress">
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="study-progress-bar" style="width:0%"></div>
+          </div>
+          <div class="progress-info">
+            <span id="study-progress-text">0 / 0</span>
+            <span id="study-score-text">정답: 0</span>
+          </div>
+        </div>
+        <div id="study-card-area"></div>
+        <div id="study-controls" class="study-controls mt-3"></div>
+      </div>
+    </div>
+
+    <!-- WRONG NOTES -->
+    <div id="page-wrong" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">오답노트</div>
+          <div class="page-subtitle" id="wrong-count-label"></div>
+        </div>
+        <button class="btn btn-primary" id="btn-study-wrong" onclick="studyWrongNotes()">
+          오답 집중학습
+        </button>
+      </div>
+      <div id="wrong-list"></div>
+    </div>
+
+    <!-- STATS -->
+    <div id="page-stats" class="page">
+      <div class="page-header">
+        <div class="page-title">학습 통계</div>
+      </div>
+      <div id="stats-content"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page">
+      <div class="page-header">
+        <div class="page-title">설정</div>
+      </div>
+
+      <div class="settings-grid">
+
+        <!-- Gemini API -->
+        <div class="card card-body settings-section">
+          <div class="settings-section-title">Gemini AI 설정</div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <div class="flex gap-2">
+              <input type="password" class="form-control" id="setting-apikey" placeholder="AIzaSy...">
+              <button class="btn btn-outline btn-sm" onclick="toggleApiKeyVisibility()">표시</button>
+            </div>
+            <div class="text-sec mt-1" style="font-size:12px">
+              브라우저에만 저장됩니다. 백업 파일에는 포함되지 않습니다.
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">사용 모델</label>
+            <select class="form-control form-select" id="setting-model">
+              <option value="gemini-2.5-flash">gemini-2.5-flash (권장)</option>
+              <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+            </select>
+          </div>
+          <div class="flex gap-2 flex-wrap">
+            <button class="btn btn-primary" onclick="saveApiSettings()">저장</button>
+            <button class="btn btn-outline btn-danger-outline" onclick="deleteApiKey()">API Key 삭제</button>
+          </div>
+          <div id="api-status" class="mt-2"></div>
+        </div>
+
+        <!-- Display -->
+        <div class="card card-body settings-section">
+          <div class="settings-section-title">화면 설정</div>
+          <div class="settings-item">
+            <div>
+              <div class="settings-item-label">다크 모드</div>
+              <div class="settings-item-desc">어두운 테마 사용</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-dark" onchange="toggleDarkMode(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Storage -->
+        <div class="card card-body settings-section">
+          <div class="settings-section-title">저장 용량</div>
+          <div id="storage-meter"></div>
+        </div>
+
+        <!-- Backup -->
+        <div class="card card-body settings-section">
+          <div class="settings-section-title">데이터 백업</div>
+          <div class="flex gap-2 flex-wrap">
+            <button class="btn btn-primary" onclick="exportData()">내보내기 (JSON)</button>
+            <label class="btn btn-outline" style="cursor:pointer;margin:0">
+              가져오기 (JSON)
+              <input type="file" accept=".json" style="display:none" onchange="importData(this)">
+            </label>
+          </div>
+          <div class="text-sec mt-2" style="font-size:12px">
+            Gemini API Key는 백업에 포함되지 않습니다.
+          </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="card card-body settings-section">
+          <div class="settings-section-title settings-danger-title">위험 구역</div>
+          <button class="btn btn-danger" onclick="resetAllData()">모든 데이터 초기화</button>
+          <div class="text-sec mt-1" style="font-size:12px">복구할 수 없습니다.</div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ===== BOTTOM NAV (모바일) ===== -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <div class="bottom-nav-item active" data-page="dashboard">
+      <span class="bnav-icon">&#8962;</span>
+      <span>홈</span>
+    </div>
+    <div class="bottom-nav-item" data-page="questions">
+      <span class="bnav-icon">&#9636;</span>
+      <span>문제</span>
+    </div>
+    <div class="bottom-nav-item" data-page="study-setup">
+      <span class="bnav-icon">&#9675;</span>
+      <span>학습</span>
+    </div>
+    <div class="bottom-nav-item" data-page="wrong">
+      <span class="bnav-icon">&#9888;</span>
+      <span>오답</span>
+    </div>
+    <div class="bottom-nav-item" data-page="settings">
+      <span class="bnav-icon">&#9881;</span>
+      <span>설정</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ===== MODAL: 문제 추가/수정 ===== -->
+<div id="modal-question" class="modal-overlay">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-question-title">문제 추가</div>
+      <button class="modal-close" onclick="closeModal('modal-question')">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="q-edit-id">
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">과목명 <span class="required">*</span></label>
+          <input type="text" class="form-control" id="q-subject" placeholder="예: 국제무역론"
+            list="subject-datalist" oninput="autoAssignColor()">
+          <datalist id="subject-datalist"></datalist>
+        </div>
+        <div class="form-group">
+          <label class="form-label">과목 색상</label>
+          <div id="q-color-picker" class="color-picker-row"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">문제 <span class="required">*</span></label>
+        <textarea class="form-control" id="q-question" rows="3"
+          placeholder="예: 구상무역의 유형 5가지는?" oninput="autoDetectType()"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">답안 <span class="required">*</span></label>
+        <textarea class="form-control" id="q-answer" rows="6"
+          placeholder="예:&#10;① 바터&#10;② 상호구매&#10;③ 오프셋&#10;④ 스위치 트레이딩&#10;⑤ 역구매"
+          oninput="autoDetectType()"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          답안 유형
+          <span class="text-sec" style="font-weight:400;font-size:12px">(자동 판별 — 수동 변경 가능)</span>
+        </label>
+        <div class="type-toggle" id="q-type-toggle">
+          <button class="type-btn" data-value="list" onclick="selectAnswerType('list')">나열형</button>
+          <button class="type-btn" data-value="step" onclick="selectAnswerType('step')">단계형</button>
+          <button class="type-btn" data-value="descriptive" onclick="selectAnswerType('descriptive')">서술형</button>
+        </div>
+      </div>
+      <div id="q-analysis-preview"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-question')">취소</button>
+      <button class="btn btn-primary" onclick="saveQuestion()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: 일괄 등록 ===== -->
+<div id="modal-bulk" class="modal-overlay">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">일괄 등록</div>
+      <button class="modal-close" onclick="closeModal('modal-bulk')">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">과목명 <span class="required">*</span></label>
+        <input type="text" class="form-control" id="bulk-subject" placeholder="예: 국제무역론"
+          list="subject-datalist">
+      </div>
+      <div class="form-group">
+        <label class="form-label">문제 입력</label>
+        <div class="bulk-format-hint">
+          <code>Q. 문제 내용</code><br>
+          <code>A. 답안 내용</code><br>
+          <br>
+          <code>Q. 다음 문제...</code><br>
+          <code>A. 다음 답안...</code>
+        </div>
+        <textarea class="form-control mt-2" id="bulk-text" rows="12"
+          placeholder="Q. 국제무역이론 4가지는?&#10;A. 절대우위론, 비교우위론, 제품수명주기이론, 신무역이론&#10;&#10;Q. 구상무역의 유형 5가지는?&#10;A.&#10;① 바터&#10;② 상호구매&#10;③ 오프셋"
+          oninput="previewBulk()"></textarea>
+      </div>
+      <div id="bulk-preview-area"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-bulk')">취소</button>
+      <button class="btn btn-primary" id="btn-bulk-save" onclick="saveBulk()" disabled>
+        <span id="bulk-save-label">등록하기</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: 세션 종료 통계 ===== -->
+<div id="modal-session-end" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">학습 완료!</div>
+      <button class="modal-close" onclick="closeModal('modal-session-end')">&#10005;</button>
+    </div>
+    <div class="modal-body" id="session-end-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-session-end');navigate('dashboard')">
+        홈으로
+      </button>
+      <button class="btn btn-primary" onclick="closeModal('modal-session-end');navigate('study-setup')">
+        다시 학습
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: 확인 다이얼로그 ===== -->
+<div id="modal-confirm" class="modal-overlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" id="confirm-title">확인</div>
+      <button class="modal-close" onclick="closeModal('modal-confirm')">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-message" style="line-height:1.7"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-confirm')">취소</button>
+      <button class="btn btn-danger" id="confirm-ok">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- ===== SCRIPTS ===== -->
+<script src="storage.js"></script>
+<script src="analysis.js"></script>
+<script src="gemini.js"></script>
+<script src="wrongnote.js"></script>
+<script src="study.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
