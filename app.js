@@ -14,10 +14,17 @@ let _confirmCallback = null;
 /* ============================================================
    초기화
 ============================================================ */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   _applySettings();
   _initNavigation();
   _initSetupPage();
+
+  // Supabase 초기화: 원격 데이터가 더 최신이면 pull 후 설정 재적용
+  if (typeof SupabaseSync !== 'undefined' && SupabaseSync.isConfigured()) {
+    const updated = await SupabaseSync.init();
+    if (updated) _applySettings();
+  }
+
   navigate('dashboard');
 });
 
@@ -722,6 +729,9 @@ function renderSettings() {
 
   // 저장 용량 미터
   _renderStorageMeter();
+
+  // 클라우드 동기화 상태
+  _renderSyncStatus();
 }
 
 function _updateApiStatus() {
@@ -752,6 +762,46 @@ function _renderStorageMeter() {
       <div class="storage-bar-fill" style="width:${pct}%;background:${color}"></div>
     </div>
     <div class="text-sec mt-1" style="font-size:12px">${pct}% 사용 중</div>`;
+}
+
+/* ============================================================
+   클라우드 동기화 UI
+============================================================ */
+function _renderSyncStatus() {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+
+  if (typeof SupabaseSync === 'undefined' || !SupabaseSync.isConfigured()) {
+    el.innerHTML = `<span style="color:var(--warning)">&#9888; 미설정</span> — supabase.js 상단의 URL, KEY, USER_ID를 입력하세요`;
+    return;
+  }
+
+  if (SupabaseSync.isOnline()) {
+    el.innerHTML = `<span style="color:var(--success)">&#9679; 온라인</span> — 데이터 변경 시 자동 동기화 중`;
+  } else {
+    el.innerHTML = `<span style="color:var(--text-sec)">&#9679; 오프라인</span> — 로컬 저장 전용, 온라인 복귀 시 자동 업로드`;
+  }
+}
+
+async function manualPush() {
+  showToast('동기화 중...', 'success');
+  const ok = await SupabaseSync.push();
+  showToast(
+    ok ? '클라우드에 저장됐습니다' : '저장 실패 — 네트워크를 확인하세요',
+    ok ? 'success' : 'warning'
+  );
+}
+
+async function manualPull() {
+  showToast('최신 데이터 확인 중...', 'success');
+  const updated = await SupabaseSync.pull();
+  if (updated) {
+    _applySettings();
+    navigate(_currentPage);
+    showToast('최신 데이터를 불러왔습니다', 'success');
+  } else {
+    showToast('이미 최신 상태입니다', 'success');
+  }
 }
 
 function toggleDarkMode(on) {

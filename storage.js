@@ -35,6 +35,8 @@ const Storage = (() => {
   /* ----------------------------------------------------------
      내부 헬퍼
   ---------------------------------------------------------- */
+  let _skipSync = false; // importFromCloud 중 Supabase 루프 방지
+
   function _get(key) {
     try {
       const raw = localStorage.getItem(key);
@@ -47,6 +49,10 @@ const Storage = (() => {
   function _set(key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
+      // 데이터 변경 시 Supabase 자동 동기화 예약 (import 중엔 생략)
+      if (!_skipSync && typeof SupabaseSync !== 'undefined') {
+        SupabaseSync.schedulePush();
+      }
       return true;
     } catch (e) {
       if (e.name === 'QuotaExceededError' && typeof showToast === 'function') {
@@ -456,6 +462,28 @@ const Storage = (() => {
   }
 
   /* ----------------------------------------------------------
+     클라우드 동기화: Supabase pull 후 localStorage 일괄 교체
+     _skipSync = true 로 재업로드 루프를 막는다
+  ---------------------------------------------------------- */
+  function importFromCloud(data) {
+    _skipSync = true;
+    try {
+      if (Array.isArray(data.questions))
+        saveQuestions(data.questions);
+      if (data.records && typeof data.records === 'object' && !Array.isArray(data.records))
+        saveRecords(data.records);
+      if (Array.isArray(data.wrong_notes))
+        saveWrongNotes(data.wrong_notes);
+      if (data.settings && typeof data.settings === 'object')
+        _set(KEYS.SETTINGS, data.settings);         // 전체 교체 (merge 아님)
+      if (data.subject_colors && typeof data.subject_colors === 'object')
+        _set(KEYS.SUBJECT_COLORS, data.subject_colors);
+    } finally {
+      _skipSync = false;
+    }
+  }
+
+  /* ----------------------------------------------------------
      저장 용량 계산
   ---------------------------------------------------------- */
   function calcStorageUsage() {
@@ -604,6 +632,9 @@ const Storage = (() => {
     exportData,
     importData,
     resetAllData,
+
+    // 클라우드 동기화
+    importFromCloud,
 
     // 용량
     calcStorageUsage,

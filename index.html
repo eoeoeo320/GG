@@ -276,6 +276,19 @@
           <div id="storage-meter"></div>
         </div>
 
+        <!-- Cloud Sync -->
+        <div class="card card-body settings-section">
+          <div class="settings-section-title">클라우드 동기화</div>
+          <div id="sync-status" class="mt-1" style="font-size:13px">확인 중...</div>
+          <div class="flex gap-2 mt-3 flex-wrap">
+            <button class="btn btn-primary" onclick="manualPush()">지금 저장</button>
+            <button class="btn btn-outline" onclick="manualPull()">최신 데이터 가져오기</button>
+          </div>
+          <div class="text-sec mt-2" style="font-size:12px">
+            supabase.js 상단의 SUPABASE_URL, SUPABASE_KEY, USER_ID를 설정하면 PC ↔ 모바일 자동 동기화됩니다.
+          </div>
+        </div>
+
         <!-- Backup -->
         <div class="card card-body settings-section">
           <div class="settings-section-title">데이터 백업</div>
@@ -459,9 +472,11 @@
 <div id="toast-container" class="toast-container"></div>
 
 <!-- ===== SCRIPTS ===== -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="storage.js"></script>
 <script src="analysis.js"></script>
 <script src="gemini.js"></script>
+<script src="supabase.js"></script>
 <script src="wrongnote.js"></script>
 <script src="study.js"></script>
 <script src="app.js"></script>
