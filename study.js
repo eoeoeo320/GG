@@ -238,7 +238,7 @@ const Study = (() => {
             data-index="${i}" data-answer="${_esc(kw)}"
             placeholder="${'＿'.repeat(Math.min(kw.length + 1, 8))}"
             autocomplete="off" spellcheck="false"
-            style="min-width:${Math.max(80, kw.length * 16)}px;max-width:220px">
+            style="min-width:${Math.min(Math.max(60, kw.length * 12), 150)}px">
         </div>`;
       }
       return `<div class="blank-line">${num}<span>${_esc(kw)}</span></div>`;
@@ -254,7 +254,7 @@ const Study = (() => {
           data-index="${i}" data-answer="${_esc(kw)}"
           placeholder="${'＿'.repeat(Math.min(kw.length + 1, 6))}"
           autocomplete="off" spellcheck="false"
-          style="min-width:${Math.max(70, kw.length * 15)}px;max-width:160px">`;
+          style="min-width:${Math.min(Math.max(60, kw.length * 11), 130)}px">`;
       }
       return `<span class="step-item">${_esc(kw)}</span>`;
     });
@@ -300,7 +300,7 @@ const Study = (() => {
         data-index="${idx}" data-answer="${_esc(kw)}"
         placeholder="${'＿'.repeat(Math.min(kw.length + 1, 8))}"
         autocomplete="off" spellcheck="false"
-        style="min-width:${Math.max(80, kw.length * 14)}px;max-width:200px">`;
+        style="min-width:${Math.min(Math.max(70, kw.length * 12), 160)}px">`;
     }).join('');
 
     return `<div class="blank-text" style="line-height:2.2">${html}</div>`;
